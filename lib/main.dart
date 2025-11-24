@@ -88,7 +88,11 @@ class _WeatherHomeState extends State<WeatherHome> {
       );
       currentLat = pos.latitude;
       currentLon = pos.longitude;
-      await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+      await fetchWeatherByCoordinates(
+        currentLat!,
+        currentLon!,
+        saveCity: false,
+      );
     } catch (e) {}
   }
 
@@ -96,7 +100,11 @@ class _WeatherHomeState extends State<WeatherHome> {
   Future<void> fetchWeather(String city) async {
     if (city.trim().isEmpty) {
       if (currentLat != null && currentLon != null) {
-        await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+        await fetchWeatherByCoordinates(
+          currentLat!,
+          currentLon!,
+          saveCity: false,
+        );
       }
       return;
     }
@@ -138,7 +146,11 @@ class _WeatherHomeState extends State<WeatherHome> {
   }
 
   // --- Fetch weather by coordinates ---
-  Future<void> fetchWeatherByCoordinates(double lat, double lon, {bool saveCity = false}) async {
+  Future<void> fetchWeatherByCoordinates(
+    double lat,
+    double lon, {
+    bool saveCity = false,
+  }) async {
     setState(() {
       loading = true;
       error = null;
@@ -160,8 +172,6 @@ class _WeatherHomeState extends State<WeatherHome> {
       }
 
       await _fetchWeatherForLatLon(lat, lon, cityName, isCurrentLocation: true);
-
-      // Do not save current location to recent cities
     } catch (e) {
       setState(() => error = "Could not detect location weather.");
     } finally {
@@ -170,8 +180,11 @@ class _WeatherHomeState extends State<WeatherHome> {
   }
 
   Future<void> _fetchWeatherForLatLon(
-      double lat, double lon, String cityName,
-      {bool isCurrentLocation = false}) async {
+    double lat,
+    double lon,
+    String cityName, {
+    bool isCurrentLocation = false,
+  }) async {
     final weatherUrl = Uri.https('api.open-meteo.com', '/v1/forecast', {
       "latitude": lat.toString(),
       "longitude": lon.toString(),
@@ -190,7 +203,6 @@ class _WeatherHomeState extends State<WeatherHome> {
       weather = WeatherData.fromJson(weatherJson, displayName);
       forecast = DailyForecast.fromJsonList(weatherJson);
 
-      // Only show text in search box for user searches, not current location
       if (!isCurrentLocation) {
         _controller.text = displayName;
       }
@@ -200,8 +212,6 @@ class _WeatherHomeState extends State<WeatherHome> {
   // --- UI ---
   @override
   Widget build(BuildContext context) {
-    final bgColors = _getBackgroundColors(weather?.temperature ?? 20);
-
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -214,20 +224,26 @@ class _WeatherHomeState extends State<WeatherHome> {
               icon: const Icon(Icons.location_on),
               tooltip: "Use current location",
               onPressed: () async {
-                final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                final serviceEnabled =
+                    await Geolocator.isLocationServiceEnabled();
                 if (!serviceEnabled) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Location services are disabled.")),
+                    const SnackBar(
+                      content: Text("Location services are disabled."),
+                    ),
                   );
                   return;
                 }
 
-                LocationPermission permission = await Geolocator.checkPermission();
+                LocationPermission permission =
+                    await Geolocator.checkPermission();
                 if (permission == LocationPermission.denied) {
                   permission = await Geolocator.requestPermission();
                   if (permission == LocationPermission.denied) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Location permission denied.")),
+                      const SnackBar(
+                        content: Text("Location permission denied."),
+                      ),
                     );
                     return;
                   }
@@ -235,15 +251,25 @@ class _WeatherHomeState extends State<WeatherHome> {
 
                 if (permission == LocationPermission.deniedForever) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Location permissions are permanently denied.")),
+                    const SnackBar(
+                      content: Text(
+                        "Location permissions are permanently denied.",
+                      ),
+                    ),
                   );
                   return;
                 }
 
-                final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium);
+                final pos = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.medium,
+                );
                 currentLat = pos.latitude;
                 currentLon = pos.longitude;
-                await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+                await fetchWeatherByCoordinates(
+                  currentLat!,
+                  currentLon!,
+                  saveCity: false,
+                );
               },
             ),
           ],
@@ -251,23 +277,28 @@ class _WeatherHomeState extends State<WeatherHome> {
         body: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: bgColors,
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
+          color: Colors.black87, // Keep neutral dark background
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8),
               _buildSearchBox(),
               if (recentCities.isNotEmpty) _buildRecentSearch(),
-              const SizedBox(height: 12),
-              if (loading) const Center(child: CircularProgressIndicator(color: Colors.white)),
+              const SizedBox(height: 30),
+              if (loading)
+                const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
               if (error != null)
-                Center(child: Text(error!, style: const TextStyle(fontSize: 18, color: Colors.redAccent))),
+                Center(
+                  child: Text(
+                    error!,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ),
               if (weather != null) _buildWeatherCard(weather!),
               if (forecast.isNotEmpty) _buildForecast(),
             ],
@@ -285,7 +316,11 @@ class _WeatherHomeState extends State<WeatherHome> {
       onChanged: (value) {
         if (value.trim().isEmpty) {
           if (currentLat != null && currentLon != null) {
-            fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+            fetchWeatherByCoordinates(
+              currentLat!,
+              currentLon!,
+              saveCity: false,
+            );
           }
         }
       },
@@ -306,7 +341,10 @@ class _WeatherHomeState extends State<WeatherHome> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+          color: Color.fromARGB(231, 255, 255, 255), // <-- your desired border color
+          width: 1.5,
+        ),
         ),
       ),
     );
@@ -329,9 +367,16 @@ class _WeatherHomeState extends State<WeatherHome> {
                     _controller.text = city;
                     fetchWeather(city);
                   },
-                  child: Text(city, style: const TextStyle(color: Colors.white)),
+                  child: Text(
+                    city,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
-                deleteIcon: const Icon(Icons.close, size: 18, color: Colors.redAccent),
+                deleteIcon: const Icon(
+                  Icons.close,
+                  size: 18,
+                  color: Colors.redAccent,
+                ),
                 onDeleted: () => _removeCity(city),
               ),
             );
@@ -342,37 +387,75 @@ class _WeatherHomeState extends State<WeatherHome> {
   }
 
   Widget _buildWeatherCard(WeatherData w) {
-    return Column(
-      children: [
-        Center(child: Text(w.city, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold))),
-        const SizedBox(height: 10),
-        Icon(_getIconForTemp(w.temperature), size: 90, color: Colors.yellow.shade300),
-        const SizedBox(height: 12),
-        Text("${w.temperature.toStringAsFixed(1)}°C",
-            style: const TextStyle(fontSize: 60, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(12)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Row(children: [
-                const Icon(Icons.air, size: 26),
-                const SizedBox(width: 6),
-                Text("${w.wind} km/h", style: const TextStyle(fontSize: 16)),
-              ]),
-              Row(children: [
-                const Icon(Icons.water_drop, size: 26),
-                const SizedBox(width: 6),
-                Text("${w.humidity ?? '--'}%", style: const TextStyle(fontSize: 16)),
-              ]),
-            ],
-          ),
+    final bgColors = _getBackgroundColors(w.temperature);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: bgColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 16),
-      ],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Center(
+            child: Text(
+              w.city,
+              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Icon(
+            _getIconForTemp(w.temperature),
+            size: 90,
+            color: Colors.yellow.shade300,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "${w.temperature.toStringAsFixed(1)}°C",
+            style: const TextStyle(fontSize: 60, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.air, size: 26),
+                    const SizedBox(width: 6),
+                    Text(
+                      "${w.wind} km/h",
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.water_drop, size: 26),
+                    const SizedBox(width: 6),
+                    Text(
+                      "${w.humidity ?? '--'}%",
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 
@@ -384,14 +467,24 @@ class _WeatherHomeState extends State<WeatherHome> {
         itemBuilder: (context, i) {
           final day = toShow[i];
           final mid = (day.maxTemp + day.minTemp) / 2;
+          final cardColor = _getBackgroundColors(mid)[0].withOpacity(0.4);
           return Card(
-            color: Colors.white10,
+            color: cardColor,
             margin: const EdgeInsets.symmetric(vertical: 6),
             child: ListTile(
               leading: Icon(_getIconForTemp(mid), color: Colors.white),
-              title: Text(day.date, style: const TextStyle(color: Colors.white)),
-              subtitle: Text("Min ${day.minTemp}° • Max ${day.maxTemp}°", style: const TextStyle(color: Colors.white70)),
-              trailing: Text("${((day.minTemp + day.maxTemp) / 2).toStringAsFixed(0)}°", style: const TextStyle(color: Colors.white)),
+              title: Text(
+                day.date,
+                style: const TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                "Min ${day.minTemp}° • Max ${day.maxTemp}°",
+                style: const TextStyle(color: Colors.white70),
+              ),
+              trailing: Text(
+                "${mid.toStringAsFixed(0)}°",
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           );
         },
@@ -407,11 +500,17 @@ class WeatherData {
   final double wind;
   final double? humidity;
 
-  WeatherData({required this.city, required this.temperature, required this.wind, this.humidity});
+  WeatherData({
+    required this.city,
+    required this.temperature,
+    required this.wind,
+    this.humidity,
+  });
 
   factory WeatherData.fromJson(Map<String, dynamic> json, String city) {
     final current = json["current_weather"];
-    final humidityList = (json["hourly"]?["relativehumidity_2m"]) as List<dynamic>?;
+    final humidityList =
+        (json["hourly"]?["relativehumidity_2m"]) as List<dynamic>?;
     double? humidityValue;
     if (humidityList != null && humidityList.isNotEmpty) {
       humidityValue = (humidityList[0] as num).toDouble();
@@ -431,22 +530,34 @@ class DailyForecast {
   final double maxTemp;
   final double minTemp;
 
-  DailyForecast({required this.date, required this.maxTemp, required this.minTemp});
+  DailyForecast({
+    required this.date,
+    required this.maxTemp,
+    required this.minTemp,
+  });
 
   static List<DailyForecast> fromJsonList(Map<String, dynamic> json) {
     final dates = (json["daily"]?["time"]) as List<dynamic>? ?? [];
-    final maxTemps = (json["daily"]?["temperature_2m_max"]) as List<dynamic>? ?? [];
-    final minTemps = (json["daily"]?["temperature_2m_min"]) as List<dynamic>? ?? [];
+    final maxTemps =
+        (json["daily"]?["temperature_2m_max"]) as List<dynamic>? ?? [];
+    final minTemps =
+        (json["daily"]?["temperature_2m_min"]) as List<dynamic>? ?? [];
 
-    final count = [dates.length, maxTemps.length, minTemps.length].reduce((a, b) => a < b ? a : b);
+    final count = [
+      dates.length,
+      maxTemps.length,
+      minTemps.length,
+    ].reduce((a, b) => a < b ? a : b);
 
     List<DailyForecast> list = [];
     for (int i = 0; i < count; i++) {
-      list.add(DailyForecast(
-        date: dates[i].toString(),
-        maxTemp: (maxTemps[i] as num).toDouble(),
-        minTemp: (minTemps[i] as num).toDouble(),
-      ));
+      list.add(
+        DailyForecast(
+          date: dates[i].toString(),
+          maxTemp: (maxTemps[i] as num).toDouble(),
+          minTemp: (minTemps[i] as num).toDouble(),
+        ),
+      );
     }
     return list;
   }
