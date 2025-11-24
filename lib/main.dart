@@ -36,6 +36,8 @@ class _WeatherHomeState extends State<WeatherHome> {
   WeatherData? weather;
   List<DailyForecast> forecast = [];
   List<String> recentCities = [];
+  double? currentLat;
+  double? currentLon;
 
   @override
   void initState() {
@@ -44,7 +46,7 @@ class _WeatherHomeState extends State<WeatherHome> {
     _tryAutoLocate();
   }
 
-  // --- RECENT CITIES (SharedPreferences) ---
+  // --- SharedPreferences ---
   Future<void> _loadRecentCities() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -61,7 +63,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     setState(() {});
   }
 
-  // --- REMOVE CITY FROM RECENT ---
   Future<void> _removeCity(String city) async {
     final prefs = await SharedPreferences.getInstance();
     recentCities.remove(city);
@@ -69,7 +70,7 @@ class _WeatherHomeState extends State<WeatherHome> {
     setState(() {});
   }
 
-  // --- AUTO-LOCATE ON START ---
+  // --- Auto-location ---
   Future<void> _tryAutoLocate() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -82,18 +83,21 @@ class _WeatherHomeState extends State<WeatherHome> {
     if (permission == LocationPermission.deniedForever) return;
 
     try {
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium);
-      await fetchWeatherByCoordinates(pos.latitude, pos.longitude, saveCity: true);
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+      );
+      currentLat = pos.latitude;
+      currentLon = pos.longitude;
+      await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
     } catch (e) {}
   }
 
-  // --- FETCH WEATHER BY CITY NAME ---
+  // --- Fetch weather by city name ---
   Future<void> fetchWeather(String city) async {
     if (city.trim().isEmpty) {
-      setState(() {
-        weather = null;
-        error = null;
-      });
+      if (currentLat != null && currentLon != null) {
+        await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+      }
       return;
     }
 
@@ -125,7 +129,7 @@ class _WeatherHomeState extends State<WeatherHome> {
       final lon = (loc["longitude"] as num).toDouble();
 
       await _fetchWeatherForLatLon(lat, lon, loc["name"]);
-      await _saveCity(city);
+      await _saveCity(loc["name"]);
     } catch (e) {
       setState(() => error = "Something went wrong 😢");
     } finally {
@@ -133,7 +137,7 @@ class _WeatherHomeState extends State<WeatherHome> {
     }
   }
 
-  // --- FETCH BY COORDINATES ---
+  // --- Fetch weather by coordinates ---
   Future<void> fetchWeatherByCoordinates(double lat, double lon, {bool saveCity = false}) async {
     setState(() {
       loading = true;
@@ -150,14 +154,14 @@ class _WeatherHomeState extends State<WeatherHome> {
       });
       final revResp = await http.get(revUrl);
       final revJson = jsonDecode(revResp.body);
-      String cityName = "$lat, $lon";
+      String cityName = "Current Location";
       if (revJson['results'] != null && revJson['results'].isNotEmpty) {
         cityName = revJson['results'][0]['name'] ?? cityName;
       }
 
-      await _fetchWeatherForLatLon(lat, lon, cityName);
-      if (saveCity) await _saveCity(cityName);
-      _controller.text = cityName;
+      await _fetchWeatherForLatLon(lat, lon, cityName, isCurrentLocation: true);
+
+      // Do not save current location to recent cities
     } catch (e) {
       setState(() => error = "Could not detect location weather.");
     } finally {
@@ -165,8 +169,9 @@ class _WeatherHomeState extends State<WeatherHome> {
     }
   }
 
-  // --- HELPER: FETCH WEATHER FOR LAT/LON ---
-  Future<void> _fetchWeatherForLatLon(double lat, double lon, String cityName) async {
+  Future<void> _fetchWeatherForLatLon(
+      double lat, double lon, String cityName,
+      {bool isCurrentLocation = false}) async {
     final weatherUrl = Uri.https('api.open-meteo.com', '/v1/forecast', {
       "latitude": lat.toString(),
       "longitude": lon.toString(),
@@ -179,62 +184,71 @@ class _WeatherHomeState extends State<WeatherHome> {
     final weatherResponse = await http.get(weatherUrl);
     final weatherJson = jsonDecode(weatherResponse.body);
 
+    final displayName = isCurrentLocation ? "Current Location" : cityName;
+
     setState(() {
-      weather = WeatherData.fromJson(weatherJson, cityName);
+      weather = WeatherData.fromJson(weatherJson, displayName);
       forecast = DailyForecast.fromJsonList(weatherJson);
+
+      // Only show text in search box for user searches, not current location
+      if (!isCurrentLocation) {
+        _controller.text = displayName;
+      }
     });
   }
 
-  // --- UI BUILD ---
+  // --- UI ---
   @override
   Widget build(BuildContext context) {
     final bgColors = _getBackgroundColors(weather?.temperature ?? 20);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Free Weather Finder"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.location_on),
-            tooltip: "Use current location",
-            onPressed: () async {
-              final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-              if (!serviceEnabled) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Location services are disabled.")),
-                );
-                return;
-              }
-
-              LocationPermission permission = await Geolocator.checkPermission();
-              if (permission == LocationPermission.denied) {
-                permission = await Geolocator.requestPermission();
-                if (permission == LocationPermission.denied) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Free Weather Finder"),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.location_on),
+              tooltip: "Use current location",
+              onPressed: () async {
+                final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                if (!serviceEnabled) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Location permission denied.")),
+                    const SnackBar(content: Text("Location services are disabled.")),
                   );
                   return;
                 }
-              }
 
-              if (permission == LocationPermission.deniedForever) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Location permissions are permanently denied.")),
-                );
-                return;
-              }
+                LocationPermission permission = await Geolocator.checkPermission();
+                if (permission == LocationPermission.denied) {
+                  permission = await Geolocator.requestPermission();
+                  if (permission == LocationPermission.denied) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Location permission denied.")),
+                    );
+                    return;
+                  }
+                }
 
-              final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium);
-              await fetchWeatherByCoordinates(pos.latitude, pos.longitude, saveCity: true);
-            },
-          ),
-        ],
-      ),
-      body: GestureDetector(
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(), // HIDE KEYBOARD
-        child: Container(
+                if (permission == LocationPermission.deniedForever) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Location permissions are permanently denied.")),
+                  );
+                  return;
+                }
+
+                final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium);
+                currentLat = pos.latitude;
+                currentLon = pos.longitude;
+                await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+              },
+            ),
+          ],
+        ),
+        body: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -249,7 +263,7 @@ class _WeatherHomeState extends State<WeatherHome> {
             children: [
               const SizedBox(height: 8),
               _buildSearchBox(),
-              if (recentCities.isNotEmpty) _buildRecentSearch(), // HORIZONTAL SCROLL WITH REMOVE
+              if (recentCities.isNotEmpty) _buildRecentSearch(),
               const SizedBox(height: 12),
               if (loading) const Center(child: CircularProgressIndicator(color: Colors.white)),
               if (error != null)
@@ -263,7 +277,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // --- SEARCH BOX ---
   Widget _buildSearchBox() {
     return TextField(
       controller: _controller,
@@ -271,11 +284,9 @@ class _WeatherHomeState extends State<WeatherHome> {
       textInputAction: TextInputAction.search,
       onChanged: (value) {
         if (value.trim().isEmpty) {
-          setState(() {
-            weather = null;
-            forecast = [];
-            error = null;
-          });
+          if (currentLat != null && currentLon != null) {
+            fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+          }
         }
       },
       onSubmitted: (value) {
@@ -301,7 +312,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // --- RECENT SEARCH (HORIZONTAL + REMOVE) ---
   Widget _buildRecentSearch() {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -314,24 +324,15 @@ class _WeatherHomeState extends State<WeatherHome> {
               padding: const EdgeInsets.only(right: 8.0),
               child: Chip(
                 backgroundColor: Colors.white10,
-                labelPadding: const EdgeInsets.only(left: 8),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        _controller.text = city;
-                        fetchWeather(city);
-                      },
-                      child: Text(city, style: const TextStyle(color: Colors.white)),
-                    ),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () => _removeCity(city),
-                      child: const Icon(Icons.close, size: 16, color: Colors.redAccent),
-                    ),
-                  ],
+                label: GestureDetector(
+                  onTap: () {
+                    _controller.text = city;
+                    fetchWeather(city);
+                  },
+                  child: Text(city, style: const TextStyle(color: Colors.white)),
                 ),
+                deleteIcon: const Icon(Icons.close, size: 18, color: Colors.redAccent),
+                onDeleted: () => _removeCity(city),
               ),
             );
           }).toList(),
@@ -340,13 +341,10 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // --- WEATHER CARD ---
   Widget _buildWeatherCard(WeatherData w) {
     return Column(
       children: [
-        Center(
-            child: Text(w.city,
-                style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold))),
+        Center(child: Text(w.city, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold))),
         const SizedBox(height: 10),
         Icon(_getIconForTemp(w.temperature), size: 90, color: Colors.yellow.shade300),
         const SizedBox(height: 12),
@@ -378,7 +376,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // --- FORECAST ---
   Widget _buildForecast() {
     final toShow = forecast.length >= 4 ? forecast.sublist(1, 4) : forecast;
     return Expanded(
