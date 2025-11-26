@@ -113,7 +113,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
       currentLat = pos.latitude;
       currentLon = pos.longitude;
       isUsingCurrentLocation = true;
-      await fetchWeatherByCoordinates(currentLat!, currentLon!, saveCity: false);
+      await fetchWeatherByCoordinates(
+        currentLat!,
+        currentLon!,
+        saveCity: false,
+      );
     } catch (e) {
       await fetchWeather('Mumbai', saveCity: false);
     }
@@ -160,8 +164,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
     }
   }
 
-  Future<void> fetchWeatherByCoordinates(double lat, double lon,
-      {bool saveCity = false}) async {
+  Future<void> fetchWeatherByCoordinates(
+    double lat,
+    double lon, {
+    bool saveCity = false,
+  }) async {
     setState(() {
       loading = true;
       error = null;
@@ -192,15 +199,20 @@ class _WeatherScreenState extends State<WeatherScreen> {
     }
   }
 
-  Future<void> _fetchWeatherForLatLon(double lat, double lon, String cityName,
-      {bool isCurrentLocation = false}) async {
+  Future<void> _fetchWeatherForLatLon(
+    double lat,
+    double lon,
+    String cityName, {
+    bool isCurrentLocation = false,
+  }) async {
     final weatherUrl = Uri.https('api.open-meteo.com', '/v1/forecast', {
       "latitude": lat.toString(),
       "longitude": lon.toString(),
       "current_weather": "true",
       // added temperature and weathercode for hourly list
       "hourly": "temperature_2m,relativehumidity_2m,weathercode",
-      "daily": "temperature_2m_max,temperature_2m_min,sunrise,sunset,weathercode",
+      "daily":
+          "temperature_2m_max,temperature_2m_min,sunrise,sunset,weathercode",
       "timezone": "auto",
     });
 
@@ -285,7 +297,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
               icon: const Icon(Icons.my_location),
               tooltip: "Use current location",
               onPressed: () async {
-                final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                final serviceEnabled =
+                    await Geolocator.isLocationServiceEnabled();
                 if (!serviceEnabled) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -295,7 +308,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   return;
                 }
 
-                LocationPermission permission = await Geolocator.checkPermission();
+                LocationPermission permission =
+                    await Geolocator.checkPermission();
                 if (permission == LocationPermission.denied) {
                   permission = await Geolocator.requestPermission();
                   if (permission == LocationPermission.denied) {
@@ -458,10 +472,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   avatar: isFav
                       ? const Icon(Icons.star, size: 18, color: Colors.yellow)
                       : null,
-                  backgroundColor: Colors.orange.shade900.withOpacity(0.18),
+                  backgroundColor: const Color.fromARGB(26, 10, 3, 3).withOpacity(0.75),
                   label: Text(
                     city,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Color.fromARGB(255, 255, 247, 0)),
                   ),
                 ),
               ),
@@ -491,7 +505,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   },
                   child: Text(
                     city,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
                   ),
                 ),
                 deleteIcon: const Icon(
@@ -650,7 +664,9 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   Widget _buildHourlyForecast() {
     // show up to next 24 hours
-    final nextHours = hourlyForecast.length > 24 ? hourlyForecast.sublist(0, 24) : hourlyForecast;
+    final nextHours = hourlyForecast.length > 24
+        ? hourlyForecast.sublist(0, 24)
+        : hourlyForecast;
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
@@ -661,9 +677,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Hourly Forecast",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
+          const Text(
+            "Hourly Forecast",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF00BCD4),
+            ),
+          ),
           SizedBox(
             height: 120,
             child: ListView.builder(
@@ -682,11 +703,27 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_hourFmt.format(h.time), style: const TextStyle(fontSize: 14, color: Colors.white)),
+                      Text(
+                        _hourFmt.format(h.time),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Icon(_getIconForWeatherCode(h.code), size: 30, color: Colors.yellow.shade300),
+                      Icon(
+                        _getIconForWeatherCode(h.code),
+                        size: 30,
+                        color: Colors.yellow.shade300,
+                      ),
                       const SizedBox(height: 6),
-                      Text(_tempString(h.temp), style: const TextStyle(fontSize: 14, color: Colors.white)),
+                      Text(
+                        _tempString(h.temp),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -704,15 +741,22 @@ class _WeatherScreenState extends State<WeatherScreen> {
       children: toShow.map((day) {
         return Card(
           color: Colors.white12,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ListTile(
-            leading: Icon(_getIconForWeatherCode(day.code), color: Colors.yellow.shade300),
+            leading: Icon(
+              _getIconForWeatherCode(day.code),
+              color: Colors.yellow.shade300,
+            ),
             title: Text(
               _dayFmt.format(day.date),
               style: const TextStyle(color: Colors.white),
             ),
-            subtitle: Text(getWeatherDescription(day.code),
-                style: const TextStyle(color: Colors.white70)),
+            subtitle: Text(
+              getWeatherDescription(day.code),
+              style: const TextStyle(color: Colors.white70),
+            ),
             trailing: Text(
               "${_tempString(day.min)} / ${_tempString(day.max)}",
               style: const TextStyle(color: Colors.white),
@@ -800,11 +844,13 @@ class HourlyForecast {
     final codes = json["hourly"]["weathercode"];
 
     for (int i = 0; i < times.length; i++) {
-      list.add(HourlyForecast(
-        DateTime.parse(times[i]),
-        (temps[i] as num).toDouble(),
-        (codes[i] as num).toInt(),
-      ));
+      list.add(
+        HourlyForecast(
+          DateTime.parse(times[i]),
+          (temps[i] as num).toDouble(),
+          (codes[i] as num).toInt(),
+        ),
+      );
     }
     return list;
   }
